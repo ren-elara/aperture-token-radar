@@ -1,0 +1,20 @@
+{
+  "name": "aperture-token-radar",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Explainable pre-token valuations and resilient launch intelligence",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "verify": "node verify.mjs",
+    "live": "node live.mjs",
+    "screenshots": "node capture.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.65.1",
+    "tsx": "^4.23.15"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "schema": "aperture/synthetic-launch-replay-v1",
+  "notice": "Synthetic adversarial patterns. These are not historical tokens or measured investment outcomes.",
+  "rows": [
+    {"chain":"solana","mint":"RunnerPattern11111111111111111111111111111","name":"RUNNER · synthetic","source":"fixture","volume5m":28000,"volume1h":65000,"buys5m":220,"sells5m":65,"uniqueBuyers5m":160,"liquidity":180000,"fdv":1200000,"mintAuthority":false,"freezeAuthority":false,"top10AccountsPct":18,"slippagePct":0.4},
+    {"chain":"solana","mint":"RugPattern1111111111111111111111111111111","name":"RUG · synthetic","source":"fixture","volume5m":95000,"volume1h":150000,"buys5m":500,"sells5m":15,"uniqueBuyers5m":5,"liquidity":4000,"fdv":3000000,"mintAuthority":true,"freezeAuthority":true,"top10AccountsPct":92,"slippagePct":24},
+    {"chain":"solana","mint":"UnknownPattern111111111111111111111111111","name":"UNKNOWN · synthetic","source":"fixture","volume5m":40000,"volume1h":100000,"buys5m":350,"sells5m":60,"liquidity":90000,"fdv":900000},
+    {"chain":"solana","mint":"QuietPattern11111111111111111111111111111","name":"QUIET · synthetic","source":"fixture","volume5m":500,"volume1h":25000,"buys5m":10,"sells5m":20,"uniqueBuyers5m":7,"liquidity":150000,"fdv":1100000,"mintAuthority":false,"freezeAuthority":false,"top10AccountsPct":22,"slippagePct":0.5}
+  ]
+}

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'">
+  <title>Aperture — Before the ticker</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <aside class="rail">
+    <a class="brand" href="#board" aria-label="Aperture home"><span class="logo">◈</span> APERTURE<span class="brand-dot">/</span></a>
+    <div class="rail-label">RESEARCH TERMINAL <span>01</span></div>
+    <nav aria-label="Main navigation">
+      <button class="nav active" data-view="board"><span>▦</span> Launch radar <b id="nav-count"></b></button>
+      <button class="nav" data-view="saved"><span>☆</span> My shortlist <b id="saved-count">0</b></button>
+      <button class="nav" data-view="recorded"><span>◉</span> Token recorded</button>
+      <button class="nav" data-view="method"><span>⌘</span> Value model</button>
+    </nav>
+    <div class="rail-note"><span class="tiny-dot"></span> SEALED REPLAY<br><strong id="as-of"></strong><p>DefiLlama protocol universe.<br>Complete. Local. Reproducible.</p></div>
+    <div class="rail-bottom">Look earlier.<br><strong>Know what you’re looking at.</strong><small>APERTURE RESEARCH / v1.0</small></div>
+  </aside>
+  <main>
+    <header class="topbar"><span><i class="tiny-dot"></i> PROTOCOL INTELLIGENCE <span class="separator">/</span> <span id="breadcrumb">Launch radar</span></span><div><span class="offline-pill">↳ OFFLINE READY</span><button id="export">↓ Export board</button></div></header>
+    <section id="board-view">
+      <div class="page-heading"><div class="eyebrow">THE NEXT WAVE, BEFORE THE TICKER</div><h1>Find the launch.<span>Understand the edge.</span></h1><p>Pre-token protocols, ranked by implied value. A defensible thesis and a practical farm plan for every row.</p><div class="heading-mark">↗<small>LOOK THROUGH<br>THE NOISE.</small></div></div>
+      <div class="metrics" id="metrics"></div>
+      <div class="insights"><div class="insight-label"><span>◈</span> SIGNAL BRIEF</div><p id="brief"></p><button id="early-shortcut">Explore early signals ↗</button></div>
+      <div class="board-head"><div><h2 id="board-title">The opportunity board <span id="count"></span></h2><p id="board-caption">No token recorded ≠ a confirmed airdrop. Values estimate a protocol token, not your allocation.</p></div><div class="scenario"><label for="scenario">VALUATION SCENARIO</label><select id="scenario"><option value="1">Base case</option><option value="0.5">Bear · 0.5×</option><option value="1.8">Bull · 1.8×</option></select></div></div>
+      <div class="filters"><label class="search">⌕ <input id="search" type="search" placeholder="Search protocols or chains…" aria-label="Search protocols"></label><select id="category" aria-label="Category"><option value="">All categories</option></select><select id="chain" aria-label="Chain"><option value="">All chains</option></select><button id="early" aria-pressed="false">↗ Early signals</button><button id="watch" aria-pressed="false">◎ Watchlist</button><button id="clear">Reset</button></div>
+      <div class="active-filters" id="active-filters"></div>
+      <div class="table-wrap"><table><thead><tr><th>#</th><th><button data-sort="name">PROTOCOL ↕</button></th><th><button data-sort="implied_value_usd">IMPLIED VALUE ↓</button></th><th><button data-sort="tvl_usd">TVL ↕</button></th><th><button data-sort="change_7d">7D FLOW ↕</button></th><th><button data-sort="alpha_score">ALPHA ↕</button></th><th>FARM BUDGET</th><th><span class="sr-only">Open and save</span></th></tr></thead><tbody id="rows"></tbody></table><div id="empty" hidden>No protocols match these filters. Try clearing a filter.</div></div>
+      <div class="table-footer"><span id="page-info"></span><div><button id="prev">← Previous</button><button id="next">Next →</button></div></div>
+      <footer><span>Source: DefiLlama sealed snapshot · <b id="coverage"></b> required protocols covered</span><span>MODEL v1 · CIRCULATING-EQUIVALENT VALUE</span></footer>
+    </section>
+    <section id="detail-view" hidden></section>
+    <section id="method-view" hidden></section>
+  </main>
+  <div role="status" id="toast" aria-live="polite"></div>
+  <script src="../data.js"></script><script src="engine.js"></script><script src="app.js"></script>
+</body>
+</html>
