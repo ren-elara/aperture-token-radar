@@ -20,7 +20,10 @@ try {
     else await page.evaluate(()=>{location.hash='protocol/curvance';});
   });
   await page.waitForSelector('#detail-view:not([hidden])');
-  await shot('2-detail.jpg');
+   await shot('2-detail.jpg');
+   await page.locator('.peer-evidence').scrollIntoViewIfNeeded();
+   await shot('4-evidence.jpg');
+   await page.evaluate(()=>window.scrollTo(0,0));
   await page.locator('[data-back]').click();
   await page.locator('#early').click();
   await page.selectOption('#category','Lending');
@@ -29,5 +32,5 @@ try {
   await shot('3-filtered.jpg');
   if(errors.length||remote.length)throw Error(JSON.stringify({errors,remote}));
   writeFileSync('artifacts/capture.json',JSON.stringify({viewport:{width:1440,height:1000},shots,errors,remote},null,2)+'\n');
-  console.log('Captured genuine offline board, Curvance dossier, and Base lending filter screenshots');
+   console.log('Captured genuine offline board, Curvance dossier, peer evidence, and Base lending filter screenshots');
 }finally{await b.close();}

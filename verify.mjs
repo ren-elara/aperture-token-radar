@@ -47,6 +47,18 @@ await test('farm plans have concrete costs, duration, access gates and exits',()
   for(const r of radar.rows){assert.equal(r.farm_steps.length,5);for(const s of r.farm_steps){assert(s.length>=20&&s.length<=600);assert.match(s,/Budget:/);assert.match(s,/Time:/);}assert(r.plan.steps.some(s=>/exit/i.test(s.title)));}
   assert(radar.rows.filter(p=>p.category==='RWA').every(p=>p.plan.restricted));
 });
+await test('traceable peer observations and consistent 28/42-day farm economics',()=>{
+  for(const p of radar.rows){
+    const v=p.model,plan=p.plan;
+    for(const r of v.peer_evidence){const source=snapshot.protocols.find(x=>x.slug===r.slug);assert(source&&E.tokenStatus(source)==='recorded');assert.equal(r.ratio,source.mcap_usd/source.tvl_usd);assert.equal(r.clipped_ratio,E.clamp(r.ratio,.03,3));}
+    assert.equal(plan.weekly_reviews,Math.ceil(plan.days/7));
+    assert.equal(plan.fee_budget_usd,plan.fee_transactions*plan.network_fee_per_action_usd);
+    assert.equal(plan.funding_budget_usd,plan.capital_usd+plan.fee_budget_usd);
+    if(plan.restricted){assert.equal(plan.capital_usd,0);assert(plan.steps.every(s=>!/^~\$/.test(s.cost)));assert.match(plan.steps[1].text,/commit no funds/);}
+    else{assert.equal(plan.fee_transactions,plan.weekly_reviews+2);assert(plan.opportunity_cost_usd>0);}
+  }
+  const fresh=E.farmPlan({...snapshot.protocols[0],category:'Lending'},30);assert.equal(fresh.fee_transactions,8);
+});
 await test('runner/rug ordering, unknown safety caps and authority veto',()=>{
   const [runner,rug,unknown,quiet]=fixtures.map(scoreLaunch);
   assert(runner.composite>quiet.composite);assert(quiet.composite>rug.composite);assert(runner.alert);assert(!rug.alert);assert(rug.veto.length>=4);
@@ -101,7 +113,7 @@ await test('two full builds produce identical directory bytes and valid dossier'
   if(!process.features.typescript){const {register}=await import('tsx/esm/api');register();}
   const {buildDossier}=await import('./vendor/makefun-board.ts');
   const dossier=readFileSync('.verify/run-a/dossier.json');assert(dossier.length<=1572864);assert.deepEqual(dossier,Buffer.from(buildDossier('.verify/run-a',{text_max_bytes:65536})));
-  const doc=JSON.parse(dossier);assert.equal(doc.images.length,3);assert(!doc.text.includes('[Cut at'));
+  const doc=JSON.parse(dossier);assert.equal(doc.images.length,4);assert(!doc.text.includes('[Cut at'));
   assert.deepEqual(readFileSync('vendor/makefun-board.ts'),readFileSync('token-radar-01-kit/starter/vendor/makefun-board.ts'));
   for(const shot of files('screenshots'))assert(statSync(join('screenshots',shot)).size<=524288);
 });
@@ -115,6 +127,7 @@ await test('offline browser: rows, details, filters, sort, scenarios, export, mo
     const dims=await page.evaluate(async()=>{const a=[];for(const src of ['1-board.jpg','2-detail.jpg','3-filtered.jpg']){const img=new Image();img.src='../../..'+'/screenshots/'+src;await img.decode();a.push([img.naturalWidth,img.naturalHeight]);}return a;});
     for(const [w,h]of dims){assert(Math.min(w,h)>=800);assert(Math.max(w,h)<=1440);}
     await page.fill('#search','curvance');assert.equal(await page.locator('#rows tr').count(),1);await page.locator('[data-open="curvance"]').first().click();await page.waitForSelector('#detail-view:not([hidden])');assert.match(await page.locator('#detail-view').innerText(),/YOUR FARM PLAN/);
+    assert.match(await page.locator('#detail-view').innerText(),/TRACE THE VALUATION/);assert.match(await page.locator('#detail-view').innerText(),/PLAN ECONOMICS/);assert(await page.locator('.peer-evidence > div').count()>0);
     await page.locator('[data-back]').click();await page.click('#clear');await page.click('#early');await page.selectOption('#category','Lending');await page.selectOption('#chain','Base');
     assert(await page.evaluate(()=>Aperture.filtered().every(r=>r.early&&r.category==='Lending'&&r.chains.includes('Base'))));
     await page.click('#clear');await page.click('[data-sort="name"]');assert.equal(await page.evaluate(()=>Aperture.state.sort),'name');
@@ -123,6 +136,8 @@ await test('offline browser: rows, details, filters, sort, scenarios, export, mo
     await page.locator('[data-save]').first().click();await page.locator('[data-view="saved"]').click();assert.equal(await page.evaluate(()=>Aperture.filtered().length),1);
     await page.locator('[data-view="method"]').click();assert.match(await page.locator('#method-view').innerText(),/category peer count/);
     await page.setViewportSize({width:390,height:844});await page.locator('[data-view="board"]').click();assert(await page.locator('#rows').isVisible());
+    await page.evaluate(()=>{location.hash='protocol/missing-slug';});await page.waitForFunction(()=>!document.getElementById('board-view').hidden);
+    await page.evaluate(()=>{location.hash='%E0%A4%A';});await page.waitForFunction(()=>!document.getElementById('board-view').hidden);
     assert.deepEqual(errors,[]);assert.deepEqual(remote,[]);
   }finally{await b.close();}
 });

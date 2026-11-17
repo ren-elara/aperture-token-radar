@@ -30,13 +30,14 @@
   }
   function ageDays(asOf, listed) { return listed === null ? null : Math.max(0, Math.floor((Date.parse(asOf) - Date.parse(listed)) / 86400000)); }
   function peers(protocols) {
-    const all = [], categories = {};
+    const all = [], categories = {}, evidence = [];
     for (const p of protocols) if (tokenStatus(p) === 'recorded' && p.mcap_usd > 0 && p.tvl_usd > 0 && p.category !== 'CEX') {
       const v = clamp(p.mcap_usd / p.tvl_usd, 0.03, 3);
       all.push(v); (categories[p.category || 'Other'] ||= []).push(v);
+      evidence.push({ slug: p.slug, name: p.name, category: p.category || 'Other', tvl_usd: p.tvl_usd, mcap_usd: p.mcap_usd, ratio: p.mcap_usd / p.tvl_usd, clipped_ratio: v });
     }
     const broad = median(all);
-    return { broad, count: all.length, categories };
+    return { broad, count: all.length, categories, evidence };
   }
   const cheap = ['Base', 'Arbitrum', 'Optimism', 'Solana', 'Sui', 'Polygon', 'Monad', 'Starknet'];
   function farmPlan(p, age) {
@@ -71,19 +72,32 @@
       exit = 'Follow the documented redemption or account-closure process only if access and an exit were confirmed in advance.';
       risk = 'Access restrictions, counterparty exposure and an unverified farming route.';
     }
+    if (restricted) action = `Check ${p.name}'s official ${category} access requirements on ${chain}, including region, account approval, supported assets and minimum size. Keep this research-only until a public route and redemption are verified; commit no funds yet.`;
+    const weeklyReviews = Math.ceil(days / 7), feeTransactions = weeklyReviews + 2;
+    const feeBudget = restricted ? 0 : gas * feeTransactions;
+    const opportunityCost = restricted ? 0 : round(capital * 0.05 * days / 365);
     const steps = [
       { title: 'Verify the route', text: `Locate ${p.name} through its DefiLlama directory slug ${p.slug}; verify the official application and current token/points status. The snapshot supplies no campaign or asset eligibility.`, cost: '$0', time: '8 min' },
       { title: restricted ? 'Check eligibility first' : 'Open a test position', text: action, cost: restricted ? '$0 until eligible' : `$${capital} capital + ~$${gas} fees`, time: '12–20 min' },
-      { title: 'Keep useful activity', text: `Review the position once a week for ${days} days. Use ${p.name} only when the action has an economic purpose; retain dated transaction hashes and any points balance actually displayed.`, cost: `~$${gas} per active week`, time: `${days} days; 5 min/week` },
-      { title: 'Test an exit', text: exit, cost: `~$${gas} network fees + product fees`, time: '10 min + any queue' },
+      { title: 'Keep useful activity', text: `Review the position once a week for ${days} days. Use ${p.name} only when the action has an economic purpose; retain dated transaction hashes and any points balance actually displayed.`, cost: restricted ? '$0 research until eligible' : `~$${gas} per active week; ${weeklyReviews} reviews budgeted`, time: `${days} days; 5 min/week` },
+      { title: 'Test an exit', text: restricted ? `Before funding ${p.name}, verify its documented redemption process, queue and restrictions. If access remains unconfirmed, stop at research with no position to unwind.` : exit, cost: restricted ? '$0 research until eligible' : `~$${gas} network fees + product fees`, time: restricted ? '10 min research' : '10 min + any queue' },
       { title: 'Reassess the thesis', text: `Recheck ${p.name}'s official token announcement before the next deposit. Record fees, capital-days and withdrawal results; stop if access, redemption or the tokenless thesis changes.`, cost: '$0 research; no reward assumed', time: '5 min/week' }
     ];
-    return { chain, capital_usd: restricted ? 0 : capital, fee_budget_usd: restricted ? 0 : gas * 6, days, restricted, risk, steps, reward: 'Unannounced; eligibility and allocation unknown' };
+    return { chain, capital_usd: restricted ? 0 : capital, fee_budget_usd: feeBudget, network_fee_per_action_usd: gas, fee_transactions: restricted ? 0 : feeTransactions, weekly_reviews: weeklyReviews, opportunity_cost_usd: opportunityCost, planning_cost_usd: round(feeBudget + opportunityCost), funding_budget_usd: restricted ? 0 : capital + feeBudget, days, restricted, risk, steps, reward: 'Unannounced; eligibility and allocation unknown' };
   }
   function valueProtocol(p, asOf, peer, scenario = 1) {
     const group = peer.categories[p.category || 'Other'] || [];
     const weight = group.length / (group.length + 5);
     const multiple = weight * median(group) + (1 - weight) * peer.broad;
+    // Cache representative observations per peer group for this build only.
+    const evidenceKey = group.length ? (p.category || 'Other') : '*';
+    const evidenceCache = peer.evidence_cache ||= new Map();
+    if (!evidenceCache.has(evidenceKey)) {
+      const cohort = (peer.evidence || []).filter(r => !group.length || r.category === (p.category || 'Other'));
+      const middle = group.length ? median(group) : peer.broad;
+      evidenceCache.set(evidenceKey, [...cohort].sort((a, b) => Math.abs(a.clipped_ratio - middle) - Math.abs(b.clipped_ratio - middle) || codeOrder(a.slug, b.slug)).slice(0, 5));
+    }
+    const peerEvidence = evidenceCache.get(evidenceKey);
     const growth = clamp(p.change_7d ?? 0, -60, 150);
     const growthMult = clamp(1 + growth / 200, 0.55, 1.65);
     const age = ageDays(asOf, p.listed_at);
@@ -94,7 +108,7 @@
     const scale = clamp((Math.log10(Math.max(1, p.tvl_usd)) - 6) * 25, 0, 100);
     const maturityScore = clamp((age ?? 180) / 1095 * 100, 0, 100);
     const alpha = Math.round(momentum * 0.4 + scale * 0.3 + maturityScore * 0.2 + confidence * 0.1);
-    return { implied, low: Math.max(1, Math.round(implied * 0.5)), high: Math.min(100000000000000, Math.round(implied * 1.8)), multiple: round(multiple, 4), growth: round(growthMult, 4), maturity: round(maturity, 4), age, confidence, alpha, peer_count: group.length, signals: { momentum: Math.round(momentum), scale: Math.round(scale), maturity: Math.round(maturityScore), evidence: confidence } };
+    return { implied, low: Math.max(1, Math.round(implied * 0.5)), high: Math.min(100000000000000, Math.round(implied * 1.8)), multiple: round(multiple, 4), growth: round(growthMult, 4), maturity: round(maturity, 4), age, confidence, alpha, peer_count: group.length, peer_weight: round(weight, 4), category_median: group.length ? median(group) : null, global_median: peer.broad, peer_evidence: peerEvidence, signals: { momentum: Math.round(momentum), scale: Math.round(scale), maturity: Math.round(maturityScore), evidence: confidence } };
   }
   function buildRadar(snapshot, scenario = 1) {
     const peer = peers(snapshot.protocols), watch = new Set(snapshot.watchlist);

@@ -1,0 +1,1 @@
+.peer-evidence{margin:15px 0}.peer-evidence>div{display:grid;grid-template-columns:1fr auto;gap:6px 12px;border-top:1px solid var(--line);padding:10px 0}.peer-evidence strong{font-size:12px}.peer-evidence span{grid-row:2;color:#59675c;font-size:11px}.peer-evidence b{grid-column:2;grid-row:1/3;align-self:center;font-variant-numeric:tabular-nums;color:var(--green)}
