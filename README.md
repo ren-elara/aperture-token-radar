@@ -4,7 +4,7 @@
 [![rank](https://make.fun/badge/token-radar-01/ren-elara/aperture-token-radar/rank.svg)](https://make.fun/bounty/token-radar-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
 [![reward](https://make.fun/badge/token-radar-01/ren-elara/aperture-token-radar/reward.svg)](https://make.fun/bounty/token-radar-01?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
 
-An offline research terminal that scans **758 DeFi protocols**, ranks **196 candidates**, covers **40/40 required watchlist entries**, and explains both the valuation and the steps to investigate or farm each protocol. An optional live CLI discovers newly traded tokens across DexScreener and GeckoTerminal and combines momentum with evidence-aware rug-risk filters.
+An offline research terminal that scans **758 DeFi protocols**, ranks **196 candidates**, covers **40/40 required watchlist entries**, and explains both the valuation evidence and the steps to investigate or farm each protocol. An optional live CLI discovers newly traded tokens across DexScreener and GeckoTerminal and combines momentum with evidence-aware rug-risk filters.
 
 Built for [make.fun's token launch radar bounty](https://make.fun/bounty/token-radar-01).
 
@@ -47,7 +47,7 @@ Entrypoint options:
 
 - Sort by implied value, TVL, seven-day TVL change, alpha or name; filter by category, chain, early candidates, required watchlist or text.
 - Switch bear/base/bull scenarios. The same engine recomputes every row and detail view.
-- Inspect any protocol's value factors, peer count, evidence confidence, alpha contributions and category-specific farm plan.
+- Inspect any protocol's value factors, held-out peer diagnostic, evidence confidence, alpha contributions and category-specific farm plan.
 - Keep a local shortlist and export the filtered board with complete farm plans as JSON.
 - Inspect token-bearing records separately; never mix observed market cap into the pre-token ranking.
 - Use a mobile layout with an accessible horizontally scrolling table, keyboard focus indicators and labeled controls.
@@ -67,13 +67,13 @@ flowchart LR
   E --> U[Static offline dashboard]
   S --> D[data.js: exact input]
   D --> U
-  U --> I[Three browser screenshots]
+  U --> I[Four browser screenshots]
   U --> V[Official buildDossier]
   I --> V
   V --> O[dossier.json]
 ```
 
-`main.ts` and the browser import the **same** `dashboard/engine.js`. A model change therefore affects both the machine-readable board and the screen. The generated input is deliberately beside `dashboard/`, as the starter's contract allows; the dossier includes all 46 KB of dashboard source without truncation.
+`main.ts` and the browser import the **same** `dashboard/engine.js`. A model change therefore affects both the machine-readable board and the screen. The generated input is deliberately beside `dashboard/`, as the starter's contract allows; the dossier includes the complete dashboard source without truncation.
 
 | File | Responsibility |
 | --- | --- |
@@ -93,19 +93,21 @@ flowchart LR
 
 The snapshot supplies TVL, seven-day TVL growth, first tracking date, category, chains, token ticker/id and circulating market cap. It supplies no FDV, emission schedule, campaign, individual allocation, audit or token-authority evidence.
 
-For positive market-cap/TVL observations, winsorize each peer ratio to `[0.03, 3]`. Use a category median shrunk toward the global median:
+For positive market-cap/TVL observations, clip each peer ratio to `[0.03, 3]` for estimation. Use a category median shrunk toward the global median; the shrinkage is selected from `[0, 2, 5, 8, 12]` using leave-one-out peer diagnostics:
 
 ```text
-w        = n_category / (n_category + 5)
-multiple = w × median(category ratios) + (1 − w) × median(all ratios)
-growth   = clamp(1 + clamp(change_7d or 0, −60, 150) / 200, 0.55, 1.65)
-maturity = 0.65 + 0.5 × min(listing_age_days or 180, 1095) / 1095
+actual   = market cap / TVL (held-out diagnostics use this raw ratio)
+w        = n_category / (n_category + selected_shrinkage)
+multiple = w × median(clipped category ratios) + (1 − w) × median(clipped all ratios)
+growth   = clamp(1 + clamp(change_7d or 0, −60, 150) / 240, 0.75, 1.40)
+maturity = 0.75 + 0.35 × min(listing_age_days or median age, 1095) / 1095
 value    = round(TVL × multiple × growth × maturity × scenario)
 scenario = 0.5 bear / 1.0 base / 1.8 bull
-range    = 0.5 × value through 1.8 × value
+planning_band = clamp(selected shrinkage's held-out p75 error factor, 1.35, 10)
+range    = value ÷ planning_band through value × planning_band
 ```
 
-Values are positive whole dollars, capped at `$100T`. Ranks are assigned by decreasing value, with a deterministic slug tie-break. The range is an assumption band, **not a statistical confidence interval**. Values use full precision; displayed factors round to four decimals.
+Values are positive whole dollars, capped at `$100T`. Ranks are assigned by decreasing value, then alpha and a deterministic slug tie-break. The leave-one-out diagnostic reports raw held-out ratios; the displayed planning band is capped for usability and is **not a statistical confidence interval**. Values use full precision; displayed factors round to four decimals.
 
 This is a **circulating-equivalent implied token value**, not FDV or an estimate of a reader's airdrop. TVL may include borrowed, nested or custodial assets, market cap can be unreliable, and peer comparisons do not establish token issuance. Listing age measures time since DefiLlama began tracking, not protocol operating age or time spent tokenless.
 
@@ -115,10 +117,10 @@ Snapshot alpha uses the weighted sum below; it guides research priority and does
 momentum = clamp(50 + bounded_7d_growth / 2, 0, 100)
 scale    = clamp((log10(TVL) − 6) × 25, 0, 100)
 maturity = clamp(listing_age_days / 1095 × 100, 0, 100)
-alpha    = round(.40 × momentum + .30 × scale + .20 × maturity + .10 × confidence)
+alpha    = round(.35 × momentum + .30 × scale + .15 × maturity + .10 × confidence + .10 × actionability)
 ```
 
-Evidence confidence reflects category peer count and availability of growth/date fields. It does not certify contract safety. Every row shows unverified mint/freeze/holder evidence as unknown.
+The current sealed snapshot has 119 positive market-cap/TVL peers. Its leave-one-out check selects shrinkage 12: 24% of 119 raw held-out ratios fall within 2×, the median error factor is 4.99× and the p75 error factor is 10.83×. The displayed planning band is therefore capped at 10×. This diagnostic exposes calibration limits; it is not claimed as predictive performance. Evidence confidence reflects category peer count and availability of growth/date fields. It does not certify contract safety. Every row shows unverified mint/freeze/holder evidence as unknown.
 
 The 40 watchlist slugs are authoritative coverage obligations. Added candidates pass token-identifier, wrapper, exchange, bridge, staking-product and version-name screening. Parent relationships are absent outside the watchlist, so additional candidates explicitly require independence verification. The actual sealed data contains a `-1` market-cap sentinel; it becomes unavailable while token identifiers still classify that record as token-bearing.
 
@@ -126,7 +128,7 @@ The 40 watchlist slugs are authoritative coverage obligations. Added candidates 
 
 Each candidate has five concrete steps: verify the official route, confirm access and open a small test position where suitable, review useful activity, test an exit, and reassess the thesis. Category determines the action: lending supply, genuine swaps/optional liquidity, vault deposits, delegation, or market research. Chain determines an estimated transaction budget; the plan prefers a listed lower-fee chain when one exists.
 
-Every step carries a cost and duration. Default test capital is `$100`; holding/review windows are 28 or 42 days. Estimates distinguish capital exposure from fees. RWA, custodial, institutional and other potentially gated categories begin with **eligibility research**, not an invented public deposit. Supported assets, fees, current public access, withdrawal queues and actual campaigns must be confirmed. No plan claims a confirmed airdrop, points program or guaranteed reward.
+Every step carries a cost and duration. Default target capital is `$100`, with a `$20` test; holding/review windows are 28 or 42 days. Estimates distinguish capital exposure, network fees and opportunity cost. RWA, custodial, institutional and other potentially gated categories begin with **eligibility research**, not an invented public deposit. Supported assets, fees, current public access, withdrawal queues and actual campaigns must be confirmed. No plan claims a confirmed airdrop, points program or guaranteed reward.
 
 ![Filtered Base lending opportunities](screenshots/3-filtered.jpg)
 
@@ -183,30 +185,20 @@ Measured on ARM64, Node v22.23.5:
 
 | Measurement | Samples | p50 | p95 | p99 |
 | --- | ---: | ---: | ---: | ---: |
-| One launch score | 2,000 | 0.0246 ms | 0.0718 ms | 0.1553 ms |
-| Full board build, 758 inputs / 196 outputs | 25 | 3.6841 ms | 7.3805 ms | 7.7265 ms |
+| One launch score | 2,000 | 0.0162 ms | 0.0629 ms | 0.1938 ms |
+| Full board build, 758 inputs / 196 outputs | 25 | 49.9424 ms | 64.7101 ms | 78.5452 ms |
 
-A real verification probe returned **24 token observations in 3,330 ms**, with both DexScreener discovery routes and GeckoTerminal reporting healthy. Network observations are time-dependent; CPU benchmarks are separate. `--live` reports provider outages as degraded instead of claiming a successful live fetch.
+An earlier live verification probe returned **24 token observations in 3,330 ms**, with both DexScreener discovery routes and GeckoTerminal reporting healthy. Network observations are time-dependent; CPU benchmarks are separate. `--live` reports provider outages as degraded instead of claiming a successful live fetch.
 
-All three captures are **1440×1000**: board 114,748 bytes, detail 133,370 bytes, filtered view 97,656 bytes. The resulting dossier is 508,859 bytes, below 1.5 MiB, and includes the entire dashboard source. The browser reported zero JavaScript errors and zero remote page requests. This session's model cannot inspect image attachments; captures were checked through browser assertions and image dimensions.
+Four genuine captures are **1440×1000**: board, Curvance detail, peer-evidence detail and filtered Base lending view. The regenerated dossier is below 1.5 MiB and includes the complete dashboard source within the 65,536-byte source cap. Browser assertions report zero JavaScript errors and zero remote page requests.
 
 Machine-readable reports are generated in `artifacts/verification.json`, `artifacts/benchmarks.json`, `artifacts/verification-live.json` and `artifacts/capture.json`. No local AI judging is claimed: the kit explicitly keeps its scorer/judge on the server.
 
 ## Submission preparation
 
-Authentication is verified as `@ren-elara` using the existing credentials copied into `.makefun/credentials`. The matching signing key is stored privately at `.makefun/keypairs/https_make.fun.json`. Both files are mode 600 and excluded from Git. No new account connection is required.
+Authentication was previously verified as `@ren-elara`; credentials and the signing key remain outside Git. The repository includes `.makefun/owner.json` to bind ownership to the account's signing wallet.
 
-The transcript bundle contains the original OpenCode session `ses_e16856076ffeoHnoNiggHzwLaB`, its opening prompt and complete run record. With the owner's read-only authorization, `scripts/snapshot-session.py` takes a consistent native SQLite backup of the shared store into `sessions/opencode.db`; it changes no message, usage record, model or timestamp. The kit then selects this session only, leaving the other terminals' sessions out. The official worktree check passes with this bundle.
-
-```sh
-python3 scripts/snapshot-session.py
-MAKEFUN_CREDENTIALS="$PWD/.makefun/credentials" node token-radar-01-kit/cli/makefun.mjs bundle --repo . --session sessions/opencode.db --session-id ses_e16856076ffeoHnoNiggHzwLaB --no-discover --no-family --no-context --system-prompt system-prompt.txt --instructions 'withheld:Private harness instructions' --harness opencode --harness-version 1.19.6 --provider openai --model gpt-6.1-sol --effort default --mcp none --out artifacts/transcripts.tar.gz
-MAKEFUN_CREDENTIALS="$PWD/.makefun/credentials" node token-radar-01-kit/cli/makefun.mjs check --kit token-radar-01-kit --repo . --worktree --transcripts artifacts/transcripts.tar.gz
-```
-
-The model/provider declarations describe this build; the original usage records remain unchanged. `system-prompt.txt` contains an explicit withholding reason. Full check results are in `artifacts/makefun-check.json`, bundle metadata is in `artifacts/makefun-bundle.json`, and the upload artifact is `artifacts/transcripts.tar.gz`. The check covers the current worktree; after the owner approves publishing, the final committed snapshot also needs its check before submission. Public repository, ownership, remote commit and entry-signature checks are completed at submission.
-
-The repository includes `.makefun/owner.json` to bind ownership to the account's signing wallet. Submission identifies one immutable commit and a signed transcript bundle. Local checks do not establish a grade or paid placement.
+This upgrade passes the local 14-group regression suite and the artifact checks in the current kit. A fresh official check still fails `transcripts_present`: the earlier bundle/check cover only the previously submitted commit and do not establish authorship of this upgrade. A complete, authentic provenance bundle and passing check of the final commit are required before publication or submission. Local checks do not establish a grade or paid placement.
 
 ---
 

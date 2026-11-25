@@ -39,7 +39,9 @@ await test('value formula, growth/age monotonicity, sparse peer shrinkage',()=>{
   assert(Math.abs(base.implied-Math.round(p.tvl_usd*base.multiple*base.growth*base.maturity))/base.implied<.001, 'displayed factors should reproduce value within 0.1% rounding');
   assert(E.valueProtocol({...p,change_7d:100},snapshot.as_of,peer).implied>E.valueProtocol({...p,change_7d:-50},snapshot.as_of,peer).implied);
   assert(E.valueProtocol({...p,listed_at:'2023-01-01'},snapshot.as_of,peer).implied>E.valueProtocol({...p,listed_at:'2026-11-01'},snapshot.as_of,peer).implied);
-  const sparse={broad:0.3,categories:{Lending:[3]}};assert(E.valueProtocol(p,snapshot.as_of,sparse).multiple<1);
+  const sparse={broad:0.3,categories:{Lending:[3],Other:[0.3,0.3]},evidence:[{category:'Lending',clipped_ratio:3,slug:'sparse-peer'},{category:'Other',clipped_ratio:0.3,slug:'prior-a'},{category:'Other',clipped_ratio:0.3,slug:'prior-b'}],selected_shrinkage:8,validation:{median_error_factor:2},median_age_days:180};assert(E.valueProtocol(p,snapshot.as_of,sparse).multiple<1);
+  assert.equal(peer.validation.p75_error_factor,peer.validation.candidates.find(candidate=>candidate.shrinkage===peer.validation.selected_shrinkage).p75_error_factor);
+  assert.equal(base.validation_band,10);
   assert(E.valueProtocol({...p,tvl_usd:p.tvl_usd*2},snapshot.as_of,peer).implied>=base.implied*2-1);
   assert.equal(E.ageDays(snapshot.as_of,null),null);
 });
@@ -54,7 +56,7 @@ await test('traceable peer observations and consistent 28/42-day farm economics'
     assert.equal(plan.weekly_reviews,Math.ceil(plan.days/7));
     assert.equal(plan.fee_budget_usd,plan.fee_transactions*plan.network_fee_per_action_usd);
     assert.equal(plan.funding_budget_usd,plan.capital_usd+plan.fee_budget_usd);
-    if(plan.restricted){assert.equal(plan.capital_usd,0);assert(plan.steps.every(s=>!/^~\$/.test(s.cost)));assert.match(plan.steps[1].text,/commit no funds/);}
+    if(plan.restricted){assert.equal(plan.capital_usd,0);assert(plan.steps.every(s=>!/^~\$/.test(s.cost)));assert.match(plan.steps[1].text,/research-only|commit no funds/);}
     else{assert.equal(plan.fee_transactions,plan.weekly_reviews+2);assert(plan.opportunity_cost_usd>0);}
   }
   const fresh=E.farmPlan({...snapshot.protocols[0],category:'Lending'},30);assert.equal(fresh.fee_transactions,8);
@@ -134,7 +136,7 @@ await test('offline browser: rows, details, filters, sort, scenarios, export, mo
     const before=await page.evaluate(()=>Aperture.radar.rows[0].implied_value_usd);await page.selectOption('#scenario','0.5');const after=await page.evaluate(()=>Aperture.radar.rows[0].implied_value_usd);assert(Math.abs(after-before*.5)<=1);
     const download=page.waitForEvent('download');await page.click('#export');const d=await download;await d.saveAs(resolve('.verify/export.json'));assert(JSON.parse(readFileSync('.verify/export.json')).rows.length>100);
     await page.locator('[data-save]').first().click();await page.locator('[data-view="saved"]').click();assert.equal(await page.evaluate(()=>Aperture.filtered().length),1);
-    await page.locator('[data-view="method"]').click();assert.match(await page.locator('#method-view').innerText(),/category peer count/);
+    await page.locator('[data-view="method"]').click();assert.match(await page.locator('#method-view').innerText(),/leave-one-out|category median/i);
     await page.setViewportSize({width:390,height:844});await page.locator('[data-view="board"]').click();assert(await page.locator('#rows').isVisible());
     await page.evaluate(()=>{location.hash='protocol/missing-slug';});await page.waitForFunction(()=>!document.getElementById('board-view').hidden);
     await page.evaluate(()=>{location.hash='%E0%A4%A';});await page.waitForFunction(()=>!document.getElementById('board-view').hidden);
