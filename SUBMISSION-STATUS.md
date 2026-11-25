@@ -1,6 +1,6 @@
 # Submission status
 
-Implementation is in an upgrade pass. The shared model and dashboard have been rewritten, the current local verification passes, and publication/submission remain pending the final provenance and account checks.
+The upgrade is pushed to `main` as `f24716c`. The model, dashboard and local checks are complete; make.fun submission is pending valid transcript provenance and account approval.
 
 ## Verified
 
@@ -29,6 +29,6 @@ Current local reports are in `artifacts/`: verification.json, benchmarks.json an
 
 ## Publication
 
-GitHub authentication is verified as `ren-elara`. The public repository is https://github.com/ren-elara/aperture-token-radar, created 2026-11-17 after the bounty opened. Its About metadata includes the make.fun bounty URL and required makefun topic. The current account-connection approval remains pending. Push and submission await both that approval and a passing official check with authentic provenance for this upgrade.
+GitHub authentication is verified as `ren-elara`. The public repository is https://github.com/ren-elara/aperture-token-radar, created 2026-11-17 after the bounty opened. Its About metadata includes the make.fun bounty URL and required makefun topic. Upgrade commit `f24716c7b51951d022d6bf65386c072df7c4b524` is pushed to `main`. Account approval remains pending, and make.fun submission awaits a fresh authentic bundle plus a passing official check for the exact submitted commit.
 
 README badges identify `ren-elara/aperture-token-radar`. `.makefun/owner.json` names the verified signing wallet. The final commit is checked again before submitting; remote public access, ownership, commit availability and the entry signature are submission-time checks. The receipt and final submission status are recorded in the excluded artifacts directory so they do not require changing the submitted commit.

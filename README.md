@@ -198,7 +198,7 @@ Machine-readable reports are generated in `artifacts/verification.json`, `artifa
 
 Authentication was previously verified as `@ren-elara`; credentials and the signing key remain outside Git. The repository includes `.makefun/owner.json` to bind ownership to the account's signing wallet.
 
-This upgrade passes the local 14-group regression suite and the artifact checks in the current kit. A fresh official check still fails `transcripts_present`: the earlier bundle/check cover only the previously submitted commit and do not establish authorship of this upgrade. A complete, authentic provenance bundle and passing check of the final commit are required before publication or submission. Local checks do not establish a grade or paid placement.
+This upgrade passes the local 14-group regression suite and the artifact checks in the current kit. A fresh official check still fails `transcripts_present`: the earlier bundle/check cover only the previously submitted commit and do not establish authorship of this upgrade. A complete, authentic provenance bundle and passing check of the final commit are required before make.fun submission. Local checks do not establish a grade or paid placement.
 
 ---
 
