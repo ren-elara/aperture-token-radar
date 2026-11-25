@@ -1,34 +1,30 @@
 # Submission status
 
-The upgrade is pushed to `main` as `f24716c`. The model, dashboard and local checks are complete; make.fun submission is pending valid transcript provenance and account approval.
+This revision prepares Aperture's next entry for review. The requested stopping point is a verified commit pushed to GitHub `main`, with a clean worktree. **No new transcript bundle or make.fun submission is part of this task.** The final pushed commit is identified in the task completion message.
 
-## Verified
+## Current implementation and verification
 
-- 196 ranked candidates from 758 sealed protocols; all 40 required watchlist slugs included.
-- 416 token-bearing records and 146 derivative products kept outside the ranked candidate board.
-- Offline dashboard with shared valuation engine, leave-one-out peer diagnostic, filters, sorting, scenarios, detailed farm plans, shortlist and export.
-- Optional live discovery across DexScreener profiles/boosts and GeckoTerminal, bounded retries/fallback, Solana RPC evidence and synthetic replay.
-- `node verify.mjs`: **14/14 groups passed** after the rewrite and p75-band fix; the optional live probe has not been rerun for this upgrade.
-- Two complete builds have identical directory manifests; dossier matches the official library byte for byte.
-- Four genuine 1440×1000 screenshots; zero browser errors and zero remote page requests.
-- Launch scoring p95 0.0629 ms; full board build p95 64.7101 ms in the latest regression run.
-- Last live verification before this upgrade: 24 observations in 3330 ms; all discovery sources healthy.
-- `npm run build`: passed using the local development loader on a distribution build of Node without TypeScript support.
-- Existing make.fun credentials are present and the authenticated identity was previously verified as `@ren-elara`; the account connection approval for the current login attempt is still unconfirmed.
-- Signing key copied into `.makefun/keypairs/https_make.fun.json` and verified to match the stored credential wallet; private files are mode 600 and excluded from Git.
-- The prior submission bundle included the original OpenCode session `ses_e16856076ffeoHnoNiggHzwLaB`, taken from a consistent native SQLite backup; that bundle does not cover the current upgrade.
-- The prior official bundle/check cover only the earlier submitted work. The current level-45 `check --worktree` passes local artifact gates but fails `transcripts_present` without a fresh bundle. A valid, authentic bundle and a passing check of the final commit are still required.
+- 196 candidates from 758 sealed records, including all 40 required watchlist slugs. Candidate partition: 40 required + 138 other below-floor + 18 other above-floor records.
+- All 416 token-bearing records and 146 other products are separately inspectable; navigation and source totals reconcile.
+- Robust size/growth/age regression with category residual shrinkage, nested five-fold full-value validation, four-fold inner parameter selection, a global-ratio baseline and fixed-configuration feature ablations.
+- Across 119 held-out peers: median error 3.42×, p75 8.09×, 31% within 2×. Baseline: 5.01×, 9.89×, 28%. This is cross-sectional validation, not future launch performance.
+- Editable capital, duration and hourly time assumptions; explicit principal, network, product-fee reserve, opportunity and labor costs. Weekly reviews incur no assumed transactions; gated categories remain research-only.
+- Offline search, combined filters, sorting, scenarios, details, persistent shortlist, two-candidate comparison, JSON export and mobile layout.
+- `npm run build` succeeds with the development TypeScript loader on this distribution's Node 22; the evaluation entrypoint uses only Node standard-library APIs.
+- `npm run verify`: 14/14 groups passed, including held-out target mutation, deterministic directory manifests, official dossier byte equality and browser behavior. All four screenshots are genuine 1440×1000 Chromium captures.
+- Dashboard source totals 64,611 bytes, with complete source and headers fitting the 65,536-byte dossier text cap; dossier remains below 1.5 MiB. Browser checks report no JavaScript errors or remote page requests.
+- Optional live monitor regression coverage passes. No new real-feed probe or live performance claim is made for this revision.
 
-## Packaged artifacts
+## Official pre-submit check
 
-- Existing transcript artifacts are from the earlier submitted work and are not proof of this upgrade.
-- A fresh `artifacts/transcripts.tar.gz`, bundle manifest and passing official check for this upgrade have not been produced.
-- `sessions/opencode.db`: native database snapshot taken with the original store opened read-only. Messages, usage, model IDs and timestamps are not edited. Only the selected session goes into the kit's bundle.
+The original kit and refreshed level-46 kit were checked before code edits: `STRICT_TRANSCRIPTS: false`. The refreshed kit's `check --worktree` passes competition window, repository size, OSI license and root entrypoint checks. Its sole failing row is `transcripts_present`, because no new bundle was supplied. Transcript-dependent checks are skipped; repository publicity, ownership, creation time and pushed commit remain submission-time checks. There is no local AI grade or sealed scorer in this kit.
 
-Current local reports are in `artifacts/`: verification.json, benchmarks.json and capture.json. Older live and official-check reports reflect earlier runs. Artifacts, sessions, credentials, private keys, kit files and development caches are excluded from Git.
+Before an eventual submission, a complete authentic transcript bundle covering this revision and a passing check for the exact submitted commit are still needed. Prior bundles do not establish provenance of new code. Session records must remain authentic and unmodified. This requirement does not block the authorized commit and push.
 
-## Publication
+## Previous entry, identity and publication
 
-GitHub authentication is verified as `ren-elara`. The public repository is https://github.com/ren-elara/aperture-token-radar, created 2026-11-17 after the bounty opened. Its About metadata includes the make.fun bounty URL and required makefun topic. Upgrade commit `f24716c7b51951d022d6bf65386c072df7c4b524` is pushed to `main`. Account approval remains pending, and make.fun submission awaits a fresh authentic bundle plus a passing official check for the exact submitted commit.
+The latest actual submitted entry is `01a1ebce-ea1c-7156-b44f-b9cb4567810d`, commit `c2c704302d31e4c4122e6de6b56f35853b925a25`. Its recorded development result was valid with all seven artifact gates passing, 12 match wins, no draws/losses and a provisional 87.20% rate. Those results apply to that entry alone. Later GitHub changes were not new make.fun submissions.
 
-README badges identify `ren-elara/aperture-token-radar`. `.makefun/owner.json` names the verified signing wallet. The final commit is checked again before submitting; remote public access, ownership, commit availability and the entry signature are submission-time checks. The receipt and final submission status are recorded in the excluded artifacts directory so they do not require changing the submitted commit.
+The repository is https://github.com/ren-elara/aperture-token-radar, created after the bounty opened. Existing make.fun authentication supports owner reads as `@ren-elara`; the fresh browser-pairing approval initiated during this session was not confirmed. Private credentials and signing keys remain excluded from Git. The committed `.makefun/owner.json` identifies the account's signing wallet.
+
+Local reports under ignored `artifacts/` describe regression results, benchmarks and screenshot capture. Current official-check logs are kept outside the repository in `/tmp/`. Old bundles, sessions and previous receipts are not refreshed or submitted by this task.

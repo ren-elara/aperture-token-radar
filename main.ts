@@ -2,6 +2,7 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import './dashboard/calibration.js';
 import './dashboard/engine.js';
 import { buildDossier } from './vendor/makefun-board.ts';
 

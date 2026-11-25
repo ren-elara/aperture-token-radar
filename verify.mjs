@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
 import { pathToFileURL } from 'node:url';
+import './dashboard/calibration.js';
 import './dashboard/engine.js';
 import { scoreLaunch, observation, normalizeDex, normalizeGecko, mergeObservations, AlertCache } from './lib/launch.mjs';
 import { requestJson, discover, solanaSafety } from './lib/feeds.mjs';
@@ -34,32 +35,40 @@ await test('strict malformed, duplicate, missing-watchlist and date refusal',()=
   for(const modify of [s=>s.protocols.push(s.protocols[0]),s=>s.watchlist.push('invented-slug'),s=>s.watchlist.push(s.watchlist[0]),s=>s.as_of='2026-02-31',s=>s.protocols[0].change_7d='bad',s=>s.protocols[0].chains=null,s=>s.protocols[0].tvl_usd=-3]){const s=JSON.parse(raw);modify(s);assert.throws(()=>E.parseSnapshot(JSON.stringify(s)));}
   const sentinel=E.parseSnapshot(raw).protocols.find(p=>p.slug==='autofinance');assert.equal(sentinel.mcap_usd,null);assert.equal(E.tokenStatus(sentinel),'recorded');
 });
-await test('value formula, growth/age monotonicity, sparse peer shrinkage',()=>{
+await test('full-value formula, fitted sensitivities and training-only held-out prediction',()=>{
   const p={...snapshot.protocols.find(p=>p.slug==='curvance')},peer=E.peers(snapshot.protocols),base=E.valueProtocol(p,snapshot.as_of,peer);
   assert(Math.abs(base.implied-Math.round(p.tvl_usd*base.multiple*base.growth*base.maturity))/base.implied<.001, 'displayed factors should reproduce value within 0.1% rounding');
   assert(E.valueProtocol({...p,change_7d:100},snapshot.as_of,peer).implied>E.valueProtocol({...p,change_7d:-50},snapshot.as_of,peer).implied);
-  assert(E.valueProtocol({...p,listed_at:'2023-01-01'},snapshot.as_of,peer).implied>E.valueProtocol({...p,listed_at:'2026-11-01'},snapshot.as_of,peer).implied);
-  const sparse={broad:0.3,categories:{Lending:[3],Other:[0.3,0.3]},evidence:[{category:'Lending',clipped_ratio:3,slug:'sparse-peer'},{category:'Other',clipped_ratio:0.3,slug:'prior-a'},{category:'Other',clipped_ratio:0.3,slug:'prior-b'}],selected_shrinkage:8,validation:{median_error_factor:2},median_age_days:180};assert(E.valueProtocol(p,snapshot.as_of,sparse).multiple<1);
-  assert.equal(peer.validation.p75_error_factor,peer.validation.candidates.find(candidate=>candidate.shrinkage===peer.validation.selected_shrinkage).p75_error_factor);
-  assert.equal(base.validation_band,10);
-  assert(E.valueProtocol({...p,tvl_usd:p.tvl_usd*2},snapshot.as_of,peer).implied>=base.implied*2-1);
+  const older=E.valueProtocol({...p,listed_at:'2023-01-01'},snapshot.as_of,peer),newer=E.valueProtocol({...p,listed_at:'2026-11-01'},snapshot.as_of,peer);
+  assert.equal(Math.sign(older.implied-newer.implied),Math.sign(peer.fit.beta[3]));
+  const doubled=E.valueProtocol({...p,tvl_usd:p.tvl_usd*2},snapshot.as_of,peer);assert(Math.abs(doubled.implied/base.implied-2**(1+peer.fit.beta[1]))<.001);
+  assert.equal(base.validation_band,Math.round(peer.validation.p75_error_factor*100)/100);
+  const C=globalThis.RadarCalibration,held=peer.validation.predictions[0],altered=peer.evidence.map(p=>p.slug===held.slug?{...p,mcap_usd:p.mcap_usd*1000}:p);
+  const rerun=C.calibrate(altered,snapshot.as_of).report.predictions.find(p=>p.slug===held.slug);assert.equal(rerun.log_prediction,held.log_prediction);assert.deepEqual(rerun.config,held.config);
+  assert.equal(new Set(peer.validation.predictions.map(p=>p.slug)).size,peer.count);
+  assert(peer.validation.predictions.every(p=>p.training_count>0&&p.training_count<peer.count));
+  assert(peer.validation.mean_abs_log_error<peer.validation.baseline.mean_abs_log_error);
+  assert(Number.isFinite(C.predict(p,C.train([],snapshot.as_of,{ridge:32,shrinkage:12}),snapshot.as_of).log_ratio));
   assert.equal(E.ageDays(snapshot.as_of,null),null);
 });
 await test('farm plans have concrete costs, duration, access gates and exits',()=>{
   for(const r of radar.rows){assert.equal(r.farm_steps.length,5);for(const s of r.farm_steps){assert(s.length>=20&&s.length<=600);assert.match(s,/Budget:/);assert.match(s,/Time:/);}assert(r.plan.steps.some(s=>/exit/i.test(s.title)));}
   assert(radar.rows.filter(p=>p.category==='RWA').every(p=>p.plan.restricted));
 });
-await test('traceable peer observations and consistent 28/42-day farm economics',()=>{
+await test('traceable raw peers, reconciled cohorts and editable farm economics',()=>{
+  assert.equal(Object.values(radar.cohorts).reduce((a,b)=>a+b,0),snapshot.protocols.length);
   for(const p of radar.rows){
     const v=p.model,plan=p.plan;
-    for(const r of v.peer_evidence){const source=snapshot.protocols.find(x=>x.slug===r.slug);assert(source&&E.tokenStatus(source)==='recorded');assert.equal(r.ratio,source.mcap_usd/source.tvl_usd);assert.equal(r.clipped_ratio,E.clamp(r.ratio,.03,3));}
+    for(const r of v.peer_evidence){const source=snapshot.protocols.find(x=>x.slug===r.slug);assert(source&&E.tokenStatus(source)==='recorded');assert.equal(r.ratio,source.mcap_usd/source.tvl_usd);}
     assert.equal(plan.weekly_reviews,Math.ceil(plan.days/7));
     assert.equal(plan.fee_budget_usd,plan.fee_transactions*plan.network_fee_per_action_usd);
-    assert.equal(plan.funding_budget_usd,plan.capital_usd+plan.fee_budget_usd);
+    assert.equal(plan.funding_budget_usd,plan.capital_usd+plan.fee_budget_usd+plan.product_fee_reserve_usd);
+    assert(Math.abs(plan.break_even_reward_usd-plan.fee_budget_usd-plan.product_fee_reserve_usd-plan.opportunity_cost_usd-plan.labor_cost_usd)<.011);
     if(plan.restricted){assert.equal(plan.capital_usd,0);assert(plan.steps.every(s=>!/^~\$/.test(s.cost)));assert.match(plan.steps[1].text,/research-only|commit no funds/);}
-    else{assert.equal(plan.fee_transactions,plan.weekly_reviews+2);assert(plan.opportunity_cost_usd>0);}
+    else{assert([4,6].includes(plan.fee_transactions));assert(plan.opportunity_cost_usd>0);}
   }
-  const fresh=E.farmPlan({...snapshot.protocols[0],category:'Lending'},30);assert.equal(fresh.fee_transactions,8);
+  const p={...snapshot.protocols[0],category:'Lending',chains:['Base']},fresh=E.farmPlan(p,30);assert.equal(fresh.days,42);
+  const custom=E.farmPlan(p,30,{capital:500,days:14,hourly:0});assert.equal(custom.capital_usd,500);assert.equal(custom.weekly_reviews,2);assert.equal(custom.labor_cost_usd,0);assert.equal(custom.fee_budget_usd,fresh.fee_budget_usd);
 });
 await test('runner/rug ordering, unknown safety caps and authority veto',()=>{
   const [runner,rug,unknown,quiet]=fixtures.map(scoreLaunch);
@@ -126,17 +135,24 @@ await test('offline browser: rows, details, filters, sort, scenarios, export, mo
     page.on('pageerror',e=>errors.push(e.message));await page.route(/^https?:/,r=>{remote.push(r.request().url());return r.abort();});
     await page.goto(pathToFileURL(resolve('.verify/run-a/dashboard/index.html')).href);await page.waitForSelector('#rows tr');
     assert.equal(await page.evaluate(()=>Aperture.radar.rows.length),radar.rows.length);
-    const dims=await page.evaluate(async()=>{const a=[];for(const src of ['1-board.jpg','2-detail.jpg','3-filtered.jpg']){const img=new Image();img.src='../../..'+'/screenshots/'+src;await img.decode();a.push([img.naturalWidth,img.naturalHeight]);}return a;});
+    assert.deepEqual(await page.evaluate(()=>Aperture.radar.rows.map(p=>[p.slug,p.implied_value_usd])),radar.rows.map(p=>[p.slug,p.implied_value_usd]));
+    const dims=await page.evaluate(async()=>{const a=[];for(const src of ['1-board.jpg','2-detail.jpg','3-filtered.jpg','4-evidence.jpg']){const img=new Image();img.src='../../..'+'/screenshots/'+src;await img.decode();a.push([img.naturalWidth,img.naturalHeight]);}return a;});
     for(const [w,h]of dims){assert(Math.min(w,h)>=800);assert(Math.max(w,h)<=1440);}
     await page.fill('#search','curvance');assert.equal(await page.locator('#rows tr').count(),1);await page.locator('[data-open="curvance"]').first().click();await page.waitForSelector('#detail-view:not([hidden])');assert.match(await page.locator('#detail-view').innerText(),/YOUR FARM PLAN/);
     assert.match(await page.locator('#detail-view').innerText(),/TRACE THE VALUATION/);assert.match(await page.locator('#detail-view').innerText(),/PLAN ECONOMICS/);assert(await page.locator('.peer-evidence > div').count()>0);
+    await page.fill('[data-budget="capital"]','500');await page.locator('[data-budget="days"]').focus();assert.equal(await page.locator('[data-budget="capital"]').inputValue(),'500');assert.match(await page.locator('.economics').innerText(),/\$500.00/);
     await page.locator('[data-back]').click();await page.click('#clear');await page.click('#early');await page.selectOption('#category','Lending');await page.selectOption('#chain','Base');
     assert(await page.evaluate(()=>Aperture.filtered().every(r=>r.early&&r.category==='Lending'&&r.chains.includes('Base'))));
-    await page.click('#clear');await page.click('[data-sort="name"]');assert.equal(await page.evaluate(()=>Aperture.state.sort),'name');
+    await page.locator('[data-view="recorded"]').click();assert.equal(await page.locator('#recorded-count').innerText(),String(radar.recorded.length));assert.equal(await page.evaluate(()=>Aperture.state.early),false);
+    await page.click('#clear');assert.equal(await page.evaluate(()=>Aperture.filtered().length),radar.recorded.length);
+    await page.locator('[data-view="excluded"]').click();assert.equal(await page.evaluate(()=>Aperture.filtered().length),radar.excluded.length);
+    await page.locator('[data-view="board"]').click();await page.click('[data-sort="name"]');assert.equal(await page.evaluate(()=>Aperture.state.sort),'name');
     const before=await page.evaluate(()=>Aperture.radar.rows[0].implied_value_usd);await page.selectOption('#scenario','0.5');const after=await page.evaluate(()=>Aperture.radar.rows[0].implied_value_usd);assert(Math.abs(after-before*.5)<=1);
     const download=page.waitForEvent('download');await page.click('#export');const d=await download;await d.saveAs(resolve('.verify/export.json'));assert(JSON.parse(readFileSync('.verify/export.json')).rows.length>100);
     await page.locator('[data-save]').first().click();await page.locator('[data-view="saved"]').click();assert.equal(await page.evaluate(()=>Aperture.filtered().length),1);
-    await page.locator('[data-view="method"]').click();assert.match(await page.locator('#method-view').innerText(),/leave-one-out|category median/i);
+    await page.locator('[data-view="board"]').click();await page.locator('[data-save][aria-pressed="false"]').first().click();await page.locator('[data-view="saved"]').click();assert.equal(await page.locator('.comparison button').count(),2);
+    await page.reload();await page.waitForSelector('#rows tr');assert.equal(await page.evaluate(()=>Aperture.filtered().length),2);
+    await page.locator('[data-view="method"]').click();assert.match(await page.locator('#method-view').innerText(),/nested five-fold/);
     await page.setViewportSize({width:390,height:844});await page.locator('[data-view="board"]').click();assert(await page.locator('#rows').isVisible());
     await page.evaluate(()=>{location.hash='protocol/missing-slug';});await page.waitForFunction(()=>!document.getElementById('board-view').hidden);
     await page.evaluate(()=>{location.hash='%E0%A4%A';});await page.waitForFunction(()=>!document.getElementById('board-view').hidden);

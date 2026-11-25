@@ -47,9 +47,9 @@ Entrypoint options:
 
 - Sort by implied value, TVL, seven-day TVL change, alpha or name; filter by category, chain, early candidates, required watchlist or text.
 - Switch bear/base/bull scenarios. The same engine recomputes every row and detail view.
-- Inspect any protocol's value factors, held-out peer diagnostic, evidence confidence, alpha contributions and category-specific farm plan.
-- Keep a local shortlist and export the filtered board with complete farm plans as JSON.
-- Inspect token-bearing records separately; never mix observed market cap into the pre-token ranking.
+- Inspect value factors, raw peer observations, nested validation and a category-specific farm plan. Edit capital, review duration and hourly time cost.
+- Keep a persistent local shortlist, compare its first two candidates by value, and export the complete scenario board with personal planning assumptions as JSON.
+- Inspect all 416 token-bearing records and 146 other products separately. Counts reconcile to the 758-record input; the 196 candidates split into 40 required watchlist, 138 other below-floor and 18 other above-floor protocols.
 - Use a mobile layout with an accessible horizontally scrolling table, keyboard focus indicators and labeled controls.
 
 The olive, cream and dark-green page uses local system fonts, consistent spacing and real tabular data. Screenshots are browser captures of the actual generated page, not mockups.
@@ -79,6 +79,7 @@ flowchart LR
 | --- | --- |
 | `main.ts` | Sealed input, board validation, deterministic artifacts and official dossier |
 | `dashboard/engine.js` | Classification, peer calibration, value, alpha and farming plans |
+| `dashboard/calibration.js` | Robust log-value regression, nested validation, baseline and ablations |
 | `dashboard/app.js` | Navigation, filters, sorting, details, shortlist and export |
 | `dashboard/app.css` | Responsive design without external assets |
 | `lib/feeds.mjs` | Bounded HTTP, discovery fallback, normalization and SPL evidence |
@@ -93,21 +94,25 @@ flowchart LR
 
 The snapshot supplies TVL, seven-day TVL growth, first tracking date, category, chains, token ticker/id and circulating market cap. It supplies no FDV, emission schedule, campaign, individual allocation, audit or token-authority evidence.
 
-For positive market-cap/TVL observations, clip each peer ratio to `[0.03, 3]` for estimation. Use a category median shrunk toward the global median; the shrinkage is selected from `[0, 2, 5, 8, 12]` using leave-one-out peer diagnostics:
+Fit the raw log market-cap/TVL ratios of 119 positive-cap/TVL peers, excluding CEX records. Six Huber reweighting passes limit outlier influence without clipping the ratios. Regularization and category residual shrinkage are selected from ridge `[1, 8, 32]` × shrinkage `[4, 12]`:
 
 ```text
-actual   = market cap / TVL (held-out diagnostics use this raw ratio)
-w        = n_category / (n_category + selected_shrinkage)
-multiple = w × median(clipped category ratios) + (1 − w) × median(clipped all ratios)
-growth   = clamp(1 + clamp(change_7d or 0, −60, 150) / 240, 0.75, 1.40)
-maturity = 0.75 + 0.35 × min(listing_age_days or median age, 1095) / 1095
+log_ratio = intercept + size × log(TVL / 100M)
+          + growth × clamp(change_7d, −60, 150) / 100
+          + age × log(1 + listing_age_days / 365)
+          + category_median_residual × n / (n + shrinkage)
+multiple = exp(intercept + size_term + category_term)
+growth   = exp(growth_term)
+maturity = exp(age_term)
 value    = round(TVL × multiple × growth × maturity × scenario)
 scenario = 0.5 bear / 1.0 base / 1.8 bull
-planning_band = clamp(selected shrinkage's held-out p75 error factor, 1.35, 10)
+planning_band = max(1.35, nested held-out p75 error factor)
 range    = value ÷ planning_band through value × planning_band
 ```
 
-Values are positive whole dollars, capped at `$100T`. Ranks are assigned by decreasing value, then alpha and a deterministic slug tie-break. The leave-one-out diagnostic reports raw held-out ratios; the displayed planning band is capped for usability and is **not a statistical confidence interval**. Values use full precision; displayed factors round to four decimals.
+Five outer folds generate full dollar-value predictions with each test fold excluded from both fitting and tuning. Four inner folds choose parameters by mean absolute log error. Missing growth and age use only the training fold's medians. The final fit uses all peers, selecting ridge 32 and category shrinkage 12. Feature ablations use the same outer folds and retain the full model's inner-selected parameters; they are diagnostics, not separately optimized alternatives.
+
+Values are positive whole dollars, capped at `$100T`. Ranks descend by value, then alpha and deterministic slug tie-break. The empirical error scale is **not a statistical confidence interval**. Values use full precision; board factors round to six decimals and the UI to four. The default build remains byte deterministic.
 
 This is a **circulating-equivalent implied token value**, not FDV or an estimate of a reader's airdrop. TVL may include borrowed, nested or custodial assets, market cap can be unreliable, and peer comparisons do not establish token issuance. Listing age measures time since DefiLlama began tracking, not protocol operating age or time spent tokenless.
 
@@ -120,7 +125,7 @@ maturity = clamp(listing_age_days / 1095 × 100, 0, 100)
 alpha    = round(.35 × momentum + .30 × scale + .15 × maturity + .10 × confidence + .10 × actionability)
 ```
 
-The current sealed snapshot has 119 positive market-cap/TVL peers. Its leave-one-out check selects shrinkage 12: 24% of 119 raw held-out ratios fall within 2×, the median error factor is 4.99× and the p75 error factor is 10.83×. The displayed planning band is therefore capped at 10×. This diagnostic exposes calibration limits; it is not claimed as predictive performance. Evidence confidence reflects category peer count and availability of growth/date fields. It does not certify contract safety. Every row shows unverified mint/freeze/holder evidence as unknown.
+Across 119 held-out observations, median full-model error is **3.42×**, p75 **8.09×**, mean absolute log error **1.579**, and **31%** are within 2×. The same-fold global median cap/TVL baseline yields **5.01×**, **9.89×**, **1.789**, and **28%** respectively. Size contributes most; growth, listing age and category show small or mixed gains. The model page reports every ablation and fitted coefficient. This cross-sectional comparison does not establish future-launch accuracy; traded survivors, related products and double-counted TVL limit transfer to pre-token protocols. Evidence coverage does not establish contract safety; authority, holder and audit evidence is unavailable in this snapshot.
 
 The 40 watchlist slugs are authoritative coverage obligations. Added candidates pass token-identifier, wrapper, exchange, bridge, staking-product and version-name screening. Parent relationships are absent outside the watchlist, so additional candidates explicitly require independence verification. The actual sealed data contains a `-1` market-cap sentinel; it becomes unavailable while token identifiers still classify that record as token-bearing.
 
@@ -128,7 +133,9 @@ The 40 watchlist slugs are authoritative coverage obligations. Added candidates 
 
 Each candidate has five concrete steps: verify the official route, confirm access and open a small test position where suitable, review useful activity, test an exit, and reassess the thesis. Category determines the action: lending supply, genuine swaps/optional liquidity, vault deposits, delegation, or market research. Chain determines an estimated transaction budget; the plan prefers a listed lower-fee chain when one exists.
 
-Every step carries a cost and duration. Default target capital is `$100`, with a `$20` test; holding/review windows are 28 or 42 days. Estimates distinguish capital exposure, network fees and opportunity cost. RWA, custodial, institutional and other potentially gated categories begin with **eligibility research**, not an invented public deposit. Supported assets, fees, current public access, withdrawal queues and actual campaigns must be confirmed. No plan claims a confirmed airdrop, points program or guaranteed reward.
+Every step carries a cost and duration. Default capital is `$100`, **including** the `$20` test; review windows are 28 days, or 42 for listings under 180 days. Weekly off-chain reviews do not incur transaction fees. Network allowance budgets 4 actions on Solana/Sui and 6 elsewhere at assumed per-action rates of $18 on Ethereum, $10 on Bitcoin and $3 elsewhere. A 0.5% product-fee reserve, 5% annual opportunity cost and time at $15/hour complete the budget. Capital, days and hourly cost are editable; transaction allowances do not rise merely because the review window grows.
+
+Cash to fund = principal + network allowance + product-fee reserve. Break-even reward = network allowance + fee reserve + opportunity cost + time cost. Recoverable principal is excluded from cost; potential principal loss, bridge fees, price impact and queues can exceed the budget. No reward probability is invented. RWA, custodial and other gated categories remain research-only with zero funding. Public access, supported assets, fees, exits and campaign claims require independent verification.
 
 ![Filtered Base lending opportunities](screenshots/3-filtered.jpg)
 
@@ -179,18 +186,18 @@ APERTURE_BROWSER=/path/to/chromium node capture.mjs
 node --import tsx main.ts --input token-radar-01-kit/input/snapshot.json --output out
 ```
 
-The recorded run passed **14/14 verification groups**: full watchlist and schema invariants; malformed payloads and duplicate/date refusal; formula and age/growth behavior; costed farm plans; rug/runner/unknown patterns; vendor normalization; retry/backoff/body limits; fallback and replay; SPL authorities; TTL/risk transitions; latency; two identical full directory builds; dossier byte equality; and browser filtering, detail views, sorting, scenarios, export, shortlist, mobile and zero remote requests.
+The current revision passes **14/14 verification groups**, including full-value formula reconstruction and fitted sensitivities, a held-out-target mutation test proving its own prediction and selected parameters remain unchanged, reconciled cohorts, editable farm economics, malformed-input refusal, optional monitor regressions, identical directory builds, dossier byte equality, and offline browser coverage. Browser checks cover candidate/value parity with the exported board, all navigation cohorts, combined filters, sorting, scenarios, budget edits, comparison, shortlist persistence, export and mobile rendering.
 
 Measured on ARM64, Node v22.23.5:
 
 | Measurement | Samples | p50 | p95 | p99 |
 | --- | ---: | ---: | ---: | ---: |
-| One launch score | 2,000 | 0.0162 ms | 0.0629 ms | 0.1938 ms |
-| Full board build, 758 inputs / 196 outputs | 25 | 49.9424 ms | 64.7101 ms | 78.5452 ms |
+| One launch score | 2,000 | 0.0185 ms | 0.0372 ms | 0.1972 ms |
+| Full board including nested validation, 758 inputs / 196 outputs | 25 | 99.8355 ms | 446.4196 ms | 447.4284 ms |
 
 An earlier live verification probe returned **24 token observations in 3,330 ms**, with both DexScreener discovery routes and GeckoTerminal reporting healthy. Network observations are time-dependent; CPU benchmarks are separate. `--live` reports provider outages as degraded instead of claiming a successful live fetch.
 
-Four genuine captures are **1440×1000**: board, Curvance detail, peer-evidence detail and filtered Base lending view. The regenerated dossier is below 1.5 MiB and includes the complete dashboard source within the 65,536-byte source cap. Browser assertions report zero JavaScript errors and zero remote page requests.
+Four genuine captures are **1440×1000**: board, Curvance detail, the complete farm plan with peer evidence, and filtered Base lending view. The regenerated dossier is below 1.5 MiB and includes all 64,611 bytes of dashboard source plus source headers within the 65,536-byte text cap, without truncation. Browser assertions report zero JavaScript errors and zero remote page requests.
 
 Machine-readable reports are generated in `artifacts/verification.json`, `artifacts/benchmarks.json`, `artifacts/verification-live.json` and `artifacts/capture.json`. No local AI judging is claimed: the kit explicitly keeps its scorer/judge on the server.
 
@@ -198,7 +205,7 @@ Machine-readable reports are generated in `artifacts/verification.json`, `artifa
 
 Authentication was previously verified as `@ren-elara`; credentials and the signing key remain outside Git. The repository includes `.makefun/owner.json` to bind ownership to the account's signing wallet.
 
-This upgrade passes the local 14-group regression suite and the artifact checks in the current kit. A fresh official check still fails `transcripts_present`: the earlier bundle/check cover only the previously submitted commit and do not establish authorship of this upgrade. A complete, authentic provenance bundle and passing check of the final commit are required before make.fun submission. Local checks do not establish a grade or paid placement.
+The refreshed level-46 kit reports `STRICT_TRANSCRIPTS: false`. Its official pre-submit check passes repository size, license, entrypoint and competition-window checks; `transcripts_present` fails because no new bundle was supplied. Transcript-dependent checks are skipped, and repository/ownership checks remain submission-time checks. The local suite validates generated artifacts and behavior; the sealed scorer and AI judge run only on the server. This revision is prepared for review and push; **no new transcript bundle or make.fun submission is authorized in this task**. See `SUBMISSION-STATUS.md` for the prior entry's recorded results.
 
 ---
 
